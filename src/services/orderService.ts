@@ -1,6 +1,5 @@
 import init, {Outputs, prove_program} from "miden-vm";
 import initData from "./data.json";
-import fs from "fs";
 import RbTree from "red-black-tree-js";
 
 let treeInitiated = false;
@@ -43,11 +42,6 @@ interface UiNode {
     color: string
 }
 
-interface InputFile {
-    operand_stack : string[],
-    advice_map : Map<string, number[]>
-}
-
 export enum Side {
     Buy,
     Sell
@@ -57,7 +51,46 @@ function BNtoNumber(n: bigint) {
     return Number(n);
 }
 
-export async function GetOrders() {
+function initializeTrees() {
+    if (treeInitiated)
+        return;
+
+    rbTree = new RbTree();
+    inputData = initData;
+
+    const nodeArray = Object.values(inputData.advice_map);
+    for (let i = 1; i< nodeArray.length; i++) {
+        const nodeEl = nodeArray[i];
+        const node : Node = {
+            memory : { pad1 : 0, pad2 : 0, pad3 : 0, memoryLocation : nodeEl[3]},
+            coordinate: {
+                color:nodeEl[4], 
+                parentId: nodeEl[5], 
+                leftChildId: nodeEl[6],
+                rightChildId: nodeEl[7]
+            },
+            order: {
+                quantity: nodeEl[8],
+                price: nodeEl[9],
+                timestamp: nodeEl[10],
+                id: nodeEl[11]
+            }
+        };
+        rbTree.insert(node.memory.memoryLocation, node);
+
+        uiTree.push({
+            id: node.memory.memoryLocation,
+            price: node.order.price,
+            children: [node.coordinate.leftChildId, node.coordinate.rightChildId],
+            quantity: node.order.quantity,
+            color: node.coordinate.color ? "red" : "black"
+        });
+    }
+    treeInitiated = true;
+}
+
+export function getOrders() {
+    initializeTrees();
     return uiTree;
 }
 
@@ -135,35 +168,10 @@ function prove_program_mock(input:string) {
 }
 
 export async function createOrder(quantity: number, price: number | null, side : Side) {
-    if(!treeInitiated) {
-        rbTree = new RbTree();
-        inputData = initData;
-
-        const nodeArray = Object.values(inputData.advice_map);
-        for (let i = 1; i< nodeArray.length; i++) {
-            const nodeEl = nodeArray[i];
-            const node : Node = {
-                memory : { pad1 : 0, pad2 : 0, pad3 : 0, memoryLocation : nodeEl[3]},
-                coordinate: {
-                    color:nodeEl[4], 
-                    parentId: nodeEl[5], 
-                    leftChildId: nodeEl[6],
-                    rightChildId: nodeEl[7]
-                },
-                order: {
-                    quantity: nodeEl[8],
-                    price: nodeEl[9],
-                    timestamp: nodeEl[10],
-                    id: nodeEl[11]
-                }
-            };
-            rbTree.insert(node.memory.memoryLocation, node);
-        }
-        treeInitiated = true;
-    }
-
+    initializeTrees();
     await init();
  
+    //construct the operand stack as a new order
     inputData.operand_stack[0] = side.toString();
     inputData.operand_stack[1] = quantity.toString();
     let sPrice : string;
@@ -191,6 +199,7 @@ export async function createOrder(quantity: number, price: number | null, side :
 
     const outputArray = Array.from(stack_output);
 
+    //update rbTree
     for(let i = 0; i < outputArray.length; i+=9) {
         if (i+8 >= outputArray.length)
             break;
@@ -223,6 +232,7 @@ export async function createOrder(quantity: number, price: number | null, side :
         }
     }
 
+    //update uiTree and adviceMap based on rbTree
     const iterator = rbTree.createIterator();
     uiTree = new Array();
 
