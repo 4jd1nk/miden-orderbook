@@ -6,6 +6,7 @@ import RbTree from "red-black-tree-js";
 let treeInitiated = false;
 let rbTree:any;
 let inputData:typeof initData;
+let uiTree : UiNode[] = new Array();
 
 interface OrderWord {
     quantity : number,
@@ -32,6 +33,14 @@ interface Node {
     memory : MemoryWord,
     coordinate : CoordinateWord,
     order : OrderWord
+}
+
+interface UiNode {
+    id :number,
+    price:number,
+    children: number[],
+    quantity: number,
+    color: string
 }
 
 interface InputFile {
@@ -155,10 +164,12 @@ export async function createOrder(quantity: number, price: number | null, side :
         }
 
         const iterator = rbTree.createIterator();
+
         let newAdviceMap : any= {};
         let i = 1;
         const keyPrefix = "00000000000000000000000000000000000000000000000000";
         const keySuffix = "00000000000000";
+
         while (iterator.hasNext()) {
             const element = iterator.next().value as Node;
             const ordinalNumber = i.toString(16);
@@ -168,6 +179,16 @@ export async function createOrder(quantity: number, price: number | null, side :
                 element.order.quantity, element.order.price, element.order.timestamp, element.order.id
             ];
             newAdviceMap[key] = value;
+
+            uiTree.push({
+//{ id: 1, price: 1, children: [2, 3], quantity: 1, color: “red” }
+                id: element.memory.memoryLocation,
+                price: element.order.price,
+                children: [element.coordinate.leftChildId, element.coordinate.rightChildId],
+                quantity: element.order.quantity,
+                color: element.coordinate.color ? "red" : "black"
+            });
+
             i++;
         }
 
