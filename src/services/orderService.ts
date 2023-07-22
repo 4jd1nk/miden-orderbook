@@ -61,6 +61,43 @@ export async function GetOrders() {
     return uiTree;
 }
 
+function prove_program_mock(input:string) {
+    const outputStack = new BigUint64Array(18);
+    outputStack[0] = 268n;    //memoryLocation
+    outputStack[1] = 1n;      //color = red (changed)
+    outputStack[2] = 259n;    //(parentId)
+    outputStack[3] = 0n;      //leftChildId
+    outputStack[4] = 0n;      //rightChildId
+    outputStack[5] = 2n;      //quantity (changed)
+    outputStack[6] = 49n;     //price
+    outputStack[7] = 1688473018n;  //timestamp
+    outputStack[8] = 4929032n;     //orderId
+
+    outputStack[9] = 241n;    //memoryLocation
+    outputStack[10] = 1n;      //color = red 
+    outputStack[11] = 217n;    //(parentId)
+    outputStack[12] = 265n;      //leftChildId
+    outputStack[13] = 229n;      //rightChildId
+    outputStack[14] = 14n;      //quantity (changed)
+    outputStack[15] = 48n;     //price
+    outputStack[16] = 1688474494n;  //timestamp
+    outputStack[17] = 2451248n;     //orderId
+
+    const proof = new Uint8Array(3);
+    proof[0] = 200;
+    proof[1] = 300;
+    proof[2] = 400;
+
+    const output : Outputs = { 
+        stack_output : outputStack,
+        overflow_addrs : outputStack,
+        trace_len : 64,
+        proof : proof,
+        free : () => {}
+    }
+    return output;
+}
+
 export async function createOrder(quantity: number, price: number | null, side : Side) {
     if(!treeInitiated) {
         rbTree = new RbTree();
@@ -110,13 +147,8 @@ export async function createOrder(quantity: number, price: number | null, side :
     inputData.operand_stack[3] = Math.floor((new Date().getTime()) /1000).toString();
     inputData.operand_stack[4] = "9999999"; //TBI
 
-    const inputs = `{
-        "operand_stack": ["0"],
-        "advice_stack": ["0"]
-    }`;
-
     const { stack_output, trace_len, overflow_addrs, proof }: Outputs =
-        prove_program(JSON.stringify(inputData));
+        prove_program_mock(JSON.stringify(inputData));
 
     const sProof = Array.from(proof!)
         .map((b) => b.toString(16).padStart(2, "0"))
@@ -184,6 +216,10 @@ export async function createOrder(quantity: number, price: number | null, side :
 
         i++;
     }
+
+    console.log(uiTree);
+    console.log(inputData);
+    console.log(sProof);
 
     return sProof;
 }
