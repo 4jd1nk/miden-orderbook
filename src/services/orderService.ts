@@ -6,7 +6,7 @@ import RbTree from "red-black-tree-js";
 let treeInitiated = false;
 let rbTree:any;
 let inputData:typeof initData;
-let uiTree : UiNode[] = new Array();
+export let uiTree : UiNode[] = new Array();
 
 interface OrderWord {
     quantity : number,
@@ -57,16 +57,11 @@ function BNtoNumber(n: bigint) {
     return Number(n);
 }
 
-export async function createOrder(quantity: number, price: number | null, side : Side) {
-    /*try {
-        fs.writeFile("./data1.json", JSON.stringify("hello"), (err : any) => {
-            if (err) console.log('Error writing file:', err);
-        });
-    }
-    catch (Error) {
-        console.log(Error);
-    }*/
+export async function GetOrders() {
+    return uiTree;
+}
 
+export async function createOrder(quantity: number, price: number | null, side : Side) {
     if(!treeInitiated) {
         rbTree = new RbTree();
         inputData = initData;
@@ -127,90 +122,68 @@ export async function createOrder(quantity: number, price: number | null, side :
         .map((b) => b.toString(16).padStart(2, "0"))
         .join("");
 
-        console.log(trace_len);
+    const outputArray = Array.from(stack_output);
 
-        const outputArray = Array.from(stack_output);
+    for(let i = 0; i < outputArray.length; i+=9) {
+        if (i+8 >= outputArray.length)
+            break;
 
-        for(let i = 0; i < outputArray.length; i+=9) {
-            if (i+8 >= outputArray.length)
-                break;
-
-            const newNode: Node = {
-                memory : { pad1 : 0, pad2 : 0, pad3 : 0, memoryLocation : BNtoNumber(outputArray[i])},
-                coordinate: {
-                    color:BNtoNumber(outputArray[i+1]), 
-                    parentId: BNtoNumber(outputArray[i+2]), 
-                    leftChildId: BNtoNumber(outputArray[i+3]),
-                    rightChildId: BNtoNumber(outputArray[i+4])
-                },
-                order: {
-                    quantity: BNtoNumber(outputArray[i+5]),
-                    price: BNtoNumber(outputArray[i+6]),
-                    timestamp: BNtoNumber(outputArray[i+7]),
-                    id: BNtoNumber(outputArray[i+8])
-                }
-            };
-
-            let modifiedNode : Node = rbTree.find(newNode.memory.memoryLocation);
-            if (modifiedNode === null) { //insert
-                rbTree.insert(newNode.memory.memoryLocation, newNode);
+        const newNode: Node = {
+            memory : { pad1 : 0, pad2 : 0, pad3 : 0, memoryLocation : BNtoNumber(outputArray[i])},
+            coordinate: {
+                color:BNtoNumber(outputArray[i+1]), 
+                parentId: BNtoNumber(outputArray[i+2]), 
+                leftChildId: BNtoNumber(outputArray[i+3]),
+                rightChildId: BNtoNumber(outputArray[i+4])
+            },
+            order: {
+                quantity: BNtoNumber(outputArray[i+5]),
+                price: BNtoNumber(outputArray[i+6]),
+                timestamp: BNtoNumber(outputArray[i+7]),
+                id: BNtoNumber(outputArray[i+8])
             }
-            else if(newNode.coordinate.parentId == 0 && newNode.coordinate.leftChildId == 0 && newNode.coordinate.rightChildId == 0) { //delete
-                rbTree.remove(newNode.memory.memoryLocation);
-            }
-            else { //modified
-                rbTree.update(newNode.memory.memoryLocation, newNode);
-            }
+        };
+
+        let modifiedNode : Node = rbTree.find(newNode.memory.memoryLocation);
+        if (modifiedNode === null) { //insert
+            rbTree.insert(newNode.memory.memoryLocation, newNode);
         }
-
-        const iterator = rbTree.createIterator();
-
-        let newAdviceMap : any= {};
-        let i = 1;
-        const keyPrefix = "00000000000000000000000000000000000000000000000000";
-        const keySuffix = "00000000000000";
-
-        while (iterator.hasNext()) {
-            const element = iterator.next().value as Node;
-            const ordinalNumber = i.toString(16);
-            const key = keyPrefix.substring(0, keyPrefix.length - ordinalNumber.length) + ordinalNumber + keySuffix;
-            const value = [0, 0, 0, element.memory.memoryLocation, 
-                element.coordinate.color, element.coordinate.parentId, element.coordinate.leftChildId, element.coordinate.rightChildId,
-                element.order.quantity, element.order.price, element.order.timestamp, element.order.id
-            ];
-            newAdviceMap[key] = value;
-
-            uiTree.push({
-//{ id: 1, price: 1, children: [2, 3], quantity: 1, color: “red” }
-                id: element.memory.memoryLocation,
-                price: element.order.price,
-                children: [element.coordinate.leftChildId, element.coordinate.rightChildId],
-                quantity: element.order.quantity,
-                color: element.coordinate.color ? "red" : "black"
-            });
-
-            i++;
+        else if(newNode.coordinate.parentId == 0 && newNode.coordinate.leftChildId == 0 && newNode.coordinate.rightChildId == 0) { //delete
+            rbTree.remove(newNode.memory.memoryLocation);
         }
-
-        newAdviceMap[keyPrefix+keySuffix] = [0, 0, 0, i-1];
-        inputData.advice_map = newAdviceMap;
-       
-        /*const newAdviceArray = rbTree.toSortedArray();
-
-        for(let i=0; i<newAdviceArray.length; i++) {
-
+        else { //modified
+            rbTree.update(newNode.memory.memoryLocation, newNode);
         }
-        var result = newAdviceMap.reduce(function(map: any, obj:any) {
-            map[obj.key] = obj.value;
-            return map;
-        }, {});
-        console.log(result);*/
+    }
 
-       
-        
+    const iterator = rbTree.createIterator();
+    uiTree = new Array();
+
+    let newAdviceMap : any= {};
+    let i = 1;
+    const keyPrefix = "00000000000000000000000000000000000000000000000000";
+    const keySuffix = "00000000000000";
+
+    while (iterator.hasNext()) {
+        const element = iterator.next().value as Node;
+        const ordinalNumber = i.toString(16);
+        const key = keyPrefix.substring(0, keyPrefix.length - ordinalNumber.length) + ordinalNumber + keySuffix;
+        const value = [0, 0, 0, element.memory.memoryLocation, 
+            element.coordinate.color, element.coordinate.parentId, element.coordinate.leftChildId, element.coordinate.rightChildId,
+            element.order.quantity, element.order.price, element.order.timestamp, element.order.id
+        ];
+        newAdviceMap[key] = value;
+
+        uiTree.push({
+            id: element.memory.memoryLocation,
+            price: element.order.price,
+            children: [element.coordinate.leftChildId, element.coordinate.rightChildId],
+            quantity: element.order.quantity,
+            color: element.coordinate.color ? "red" : "black"
+        });
+
+        i++;
+    }
+
     return sProof;
-
-
-
-
 }
