@@ -462,3 +462,247 @@ proc.isLeftChild
     drop push.0  
   end            
 end
+
+proc.DereferenceParent
+  # Inputs:  [node_pointer, ...]
+  # Outputs: [...]
+  #
+  # Comments: remove any reference of node from parent
+  #
+  dup exec.getParentPointer     # [parent_pointer, node_pointer, ...]
+  dup exec.SaveChangeFlag
+  push.0 swap                   # [parent_pointer, 0, node_pointer, ...]
+  movup.2 exec.isLeftChild      # [isLeftChild_bool, parent_pointer, 0, ...]
+  if.true 
+    exec.setLeftChildToParent   # [...]
+  else 
+    exec.setRightChildToParent  # [...]
+  end
+end
+
+proc.setToNIL
+  # Inputs:  [node_pointer, ...]
+  # Outputs: [...]
+  #
+  # Comments: Zeros out node fields
+  #
+  dup exec.DereferenceParent   # [node_pointer, ...]
+  push.0.0.0.0.0.0.0.0         # [0, 0, 0, 0, 0, 0, 0, 0, node_pointer, ...]  
+  movup.8                      # [node_pointer, 0, 0, 0, 0, 0, 0, 0, 0, ...]
+  exec.UpdateNode              # [...] 
+end
+
+proc.getSiblingPointer
+  # Inputs:  [node_pointer, ...]
+  # Outputs: [sibling_pointer, ...]
+  #
+  # Comments: Gets sibling pointer
+  #
+  dup exec.isLeftChild                                 # Is Node left child?               [isNodeLeftChild_bool, node_pointer, ...]
+  swap exec.getParentPointer                           # Parent pointer                    [parent_pointer, isNodeLeftChild_bool, ...] 
+  exec.getCoordinates exec.getChildrenFromCoordinates  # Parent's children pointers        [parent_Lchild_pointer, parent_Rchild_pointer, isNodeLeftChild_bool, ...]
+  movup.2                                              # isNodeLeftChild_bool top of stack [isNodeLeftChild_bool, parent_Lchild_pointer, parent_Rchild_pointer, ...]
+  if.true
+    drop                                               # Sibling is parent's right child   [parent_Rchild_pointer, ...]
+  else
+    swap drop                                          # Sibling is parent's left child    [parent_Lchild_pointer, ...]
+  end
+end
+
+proc.getNephewsPointers
+  # Inputs:  [node_pointer, ...]
+  # Outputs: [close_nephew_pointer, distant_nephew_pointer, ...]
+  #
+  # Comments: Gets nephew pointers, close nephew first
+  #
+  dup exec.isLeftChild not                             # Is Node Right child?              [isNodeRightChild_bool, node_pointer, ...]
+  swap exec.getSiblingPointer                          # Sibling pointer                   [sibling_pointer, isNodeRightChild_bool, ...] 
+  exec.getCoordinates exec.getChildrenFromCoordinates  # Sibling's children pointers       [sibling_Lchild_pointer, sibling_Rchild_pointer, isNodeRightChild_bool, ...]
+  dup.2                                                # isNodeLeftChild_bool top of stack [isNodeRightChild_bool, sibling_Lchild_pointer, sibling_Rchild_pointer, ...]
+  if.true
+    swap                                               # Sibling's Right child is close nephew [sibling_Rchild_pointer, sibling_Lchild_pointer, ...]
+  end
+  #### Else # Sibling's Left child is close nephew [sibling_Lchild_pointer, sibling_Rchild_pointer, ...]
+end
+
+proc.hasLeftChild
+  # Inputs: [node_pointer,....]
+  # Ouputs: [hasLeftChild_bool, Lchild_pointer...]
+  #
+  # Comments: Verifies if node has left child and returns pointer to it
+  #  
+  exec.getCoordinates     # Get coordinates 
+  drop drop swap drop     # Isolate Left child pointer
+  dup push.0 eq not       # Duplicate and chech that it isn't NIL
+end
+
+proc.isPointerInCoordinate
+  # Inputs: [node_pointer, coordinate_word, ...]
+  # Ouputs: [isPointerInCoordinate_bool, Position_in_coordinate_word...]
+  #
+  # Comments: Checks if pointer exists in coordinate word and returns bool alongside position in word
+  #
+  swap drop               # Get rid of color               [node_pointer, parent_pointer, Lchild_pointer, Rchild_pointer, ...]
+  dup.1 dup.1 neq         # Is node not the parent?        [isNodeParent_bool, node_pointer, parent_pointer, Lchild_pointer, Rchild_pointer, ...]
+  if.true
+    swap drop             # Drop parent pointer            [node_pointer, Lchild_pointer, Rchild_pointer, ...]
+    dup.1 dup.1 neq       # Is node not the Left child?    [isNodeNotLchild_bool, node_pointer, Lchild_pointer, Rchild_pointer, ...]
+    if.true 
+      swap drop           # Drop Left child                [node_pointer, Rchild_pointer, ...]
+      neq                 # Is node not the Right child    [isNodeNotRchild_bool, ...]
+      if.true 
+        push.0.0          # Node not in coordinate word    [0, 0, ...]
+      else 
+        push.3 push.1     # Node is Right child            [1, 3, ...]
+      end
+    else 
+      drop drop drop
+      push.2 push.1       # Node is Left child             [1, 2, ...]
+    end 
+  else 
+    drop drop drop drop
+    push.1 push.1         # Node is Parent                 [1, 1, ...]
+  end
+end
+
+proc.SwapIntoPositionKofFour
+  # Inputs: [K, value, elem1, ..., elem4 ...]
+  # Ouputs: [elem1, ..., elemK=value, ..., elem4 ...]
+  #
+  # Comments: Swaps 'value' into list of elements {elem1,...,elem4} at position 'K'.
+  #           For proper functioning, K<4
+  #
+
+  loc_store.0             # Save K                 [value, elem1, elem2, ..., elemN ...]
+  push.1 loc_load.0 eq 
+  if.true
+    swap drop 
+  else 
+    push.2 loc_load.0 eq
+    if.true 
+      swap.2 drop      
+    else
+      push.3 loc_load.0 eq
+      if.true 
+        swap.3 drop     
+      else 
+        swap.4 drop      # K must equal 4
+      end 
+    end
+  end 
+end
+
+proc.UpdateParentReference
+  # Inputs: [nodeA_pointer, nodeB_pointer, ...]
+  # Ouputs: [nodeA_pointer, nodeB_pointer, ...]
+  #
+  # Comments: Updates nodeB to new child of nodeA's parent.
+  #
+  dup exec.getParentPointer       # Get nodeA's parent                   [nodeA_parent_pointer, nodeA_pointer, nodeB_pointer, ...]
+  dup exec.SaveChangeFlag         # Switch parent change flag
+  dup.2 swap                      # Prepare for new reference            [nodeA_parent_pointer, nodeB_pointer, nodeA_pointer, nodeB_pointer, ...]
+  dup.2 exec.isLeftChild          # Is A a left child?                   [isLeftChild_bool, nodeA_parent_pointer, nodeB_pointer, nodeA_pointer, nodeB_pointer, ...]
+  if.true 
+    exec.setLeftChildToParent     # Update child in parent               [nodeA_pointer, nodeB_pointer, ...]
+  else 
+    exec.setRightChildToParent    # Update child in parent               [nodeA_pointer, nodeB_pointer, ...]
+  end
+end
+
+proc.UpdateChildReferences
+  # Inputs: [nodeA_pointer, nodeB_pointer, ...]
+  # Ouputs: [nodeA_pointer, nodeB_pointer, ...]
+  #
+  # Comments: Updates nodeB as new parent of nodeA's children.
+  #
+  dup exec.getCoordinates         # Get nodeA coordinates                [nodeA_coordiante_word, nodeA_pointer, nodeB_pointer, ...] 
+  exec.getChildrenFromCoordinates # Isolate children                     [nodeA_Lchild, nodeA_Rchild, nodeA_pointer, nodeB_pointer, ...]
+  dup exec.SaveChangeFlag
+  dup.1 exec.SaveChangeFlag       
+  dup.3                           # Duplicate nodeB pointer on stack     [nodeB_pointer, nodeA_Lchild, nodeA_Rchild, nodeA_pointer, nodeB_pointer, ...]
+  swap dup.1                      # ReDuplicate the same                 [nodeB_pointer, nodeA_Lchild, nodeB_pointer, nodeA_Rchild, nodeA_pointer, nodeB_pointer, ...]
+  exec.UpdateParentInChild        # Reassign parent of nodeA_Lchild      [nodeB_pointer, nodeA_Rchild, nodeA_pointer, nodeB_pointer, ...]
+  exec.UpdateParentInChild        # Reassign parent of nodeA_Rchild      [nodeA_pointer, nodeB_pointer, ...]
+end
+
+proc.SwapFamilyReferences
+  # Inputs: [nodeA_pointer, nodeB_pointer, ...]
+  # Ouputs: [...]
+  #
+  # Comments: Updates nodeB to new child of nodeA's parent, and parent of nodeA' children. AND viceversa
+  #
+  exec.UpdateParentReference      # [nodeA_pointer, nodeB_pointer, ...]
+  exec.UpdateChildReferences      # [nodeA_pointer, nodeB_pointer, ...]
+  swap                            # [nodeB_pointer, nodeA_pointer, ...]
+  exec.UpdateParentReference      # [nodeB_pointer, nodeA_pointer, ...]
+  exec.UpdateChildReferences      # [nodeB_pointer, nodeA_pointer, ...]
+  swap                            # [nodeA_pointer, nodeB_pointer, ...]
+end
+
+proc.SwapNodes
+  # Inputs: [nodeA_pointer, nodeB_pointer, ...]
+  # Ouputs: [...]
+  #
+  # Comments: Swaps coordinates of two nodes.
+  #
+
+  exec.SwapFamilyReferences
+
+  dup exec.SaveChangeFlag         # Save nodeA change flag
+  dup.1 exec.SaveChangeFlag       # Save nodeB change flag
+
+  dup exec.getCoordinates         # Get node A coordinates               [nodeA_coordinate_word, nodeA_pointer, nodeB_pointer, ...]
+  dup.5                           # Duplicate nodeB pointer on stack     [nodeB_pointer, nodeA_coordinate_word, nodeA_pointer, nodeB_pointer, ...]
+  exec.isPointerInCoordinate      # Is nodeB is in direct family of A?   [isDirectFamilyMember_bool, BinA_position, nodeA_pointer, nodeB_pointer, ...]
+  if.true
+    push.1 add                    # Add one to BinA for consistency      [BinA_position, nodeA_pointer, nodeB_pointer, ...]
+    dup.2 exec.getCoordinates     # Get node B coordinates               [nodeB_coordinate_word, BinA_position, nodeA_pointer, nodeB_pointer, ...]
+    dup.5                         # Duplicate node A pointer             [nodeA_pointer, nodeB_coordinate_word, BinA_position, nodeA_pointer, nodeB_pointer, ...]
+    exec.isPointerInCoordinate    # Is nodeA is in direct family of B?   [isDirectFamilyMember_bool, AinB_position, BinA_position, nodeA_pointer, nodeB_pointer, ...]
+    drop push.1 add               # Drop bool and fix AinB               [AinB_position, BinA_position, nodeA_pointer, nodeB_pointer, ...]
+
+    dup.3 dup exec.getCoordinates # Get node B coordinates               [nodeB_coordinate_word, nodeB_pointer, AinB_position, BinA_position, nodeA_pointer, nodeB_pointer, ...]
+    movup.4                       # Move nodeB_pointer top of stack      [nodeB_pointer, nodeB_coordinate_word, AinB_position, BinA_position, nodeA_pointer, nodeB_pointer, ...]
+    movup.5                       # Move AinB to top of stack            [AinB_position, nodeB_pointer, nodeB_coordinate_word, BinA_position, nodeA_pointer, nodeB_pointer, ...]
+    exec.SwapIntoPositionKofFour  # Get new nodeA coordinate word        [new_nodeA_coordinate_word, BinA_position, nodeA_pointer, nodeB_pointer, ...]
+    movup.5                       # Bring nodeA pointer top of stack     [nodeA_pointer, new_nodeA_coordinate_word, BinA_position, nodeB_pointer, ...]
+    dup exec.getCoordinates       # Get nodeA coordiante word            [nodeA_coordinate_word, nodeA_pointer, new_nodeA_coordinate_word, BinA_position, nodeB_pointer, ...]
+    movup.9                       # Bring BinA top of stack              [BinA_position, nodeA_coordinate_word, nodeA_pointer, new_nodeA_coordinate_word, nodeB_pointer, ...]
+    dup.5 swap                    # Duplicate nodeA pointer              [BinA_position, nodeA_pointer, nodeA_coordinate_word, nodeA_pointer, new_nodeA_coordinate_word, nodeB_pointer, ...]
+    exec.SwapIntoPositionKofFour  # Get new nodeB coordinate word        [new_nodeB_coordinate_word, nodeA_pointer, new_nodeA_coordinate_word, nodeB_pointer, ...]
+    movup.9                       # Bring nodeB pointer top of stack     [nodeB_pointer, new_nodeB_coordinate_word, nodeA_pointer, new_nodeA_coordinate_word, ...]
+    exec.SaveCoordinate           # Save new Node B coordinates          [nodeA_pointer, new_nodeA_coordinate_word, ...]
+    exec.SaveCoordinate           # Save new node A coordinates          [...]
+  else
+    drop                          # Drop unnecessary position            [nodeA_pointer, nodeB_pointer, ...]
+    dup exec.getCoordinates       # Get node A coordinates               [nodeA_coordinate_word, nodeA_pointer, nodeB_pointer, ...]
+    movup.5                       # Bring Node B pointer top of stack    [nodeB_pointer, nodeA_coordinate_word, nodeA_pointer, ...]
+    dup exec.getCoordinates       # Get node B coordinates               [nodeB_coordinate_word, nodeB_pointer, nodeA_coordinate_word, nodeA_pointer, ...]
+    movup.9                       # Bring node A pointer top of stack    [nodeA_pointer, nodeB_coordinate_word, nodeB_pointer, nodeA_coordinate_word, ...]
+    exec.SaveCoordinate           # Save new Node A coordinates          [nodeB_pointer, nodeA_coordinate_word, ...]
+    exec.SaveCoordinate           # Save new node B coordinates          [...]
+  end
+end
+
+proc.getRightMinimumSubtreeElement
+  # Inputs: [node_pointer,....]
+  # Ouputs: [Minimum_Right_subtree_pointer, ...]
+  #
+  # Comments: Starting from the node N, function traverses left subtree 
+  #           to find minimum subtree node Y.
+  #
+  dup exec.getCoordinates         # Get node coordinates                   [node_coordinate_word, node_pointer, ...]
+  drop drop drop                  # Isolate Right child                    [Rchild_pointer, node_pointer, ...]
+  swap drop push.1                # Enter while loop                       [1, Rchild_pointer, ...]
+
+  while.true 
+    dup exec.hasLeftChild         # Is there a left child?                 [hasLeftChild_bool, Lchild_pointer, in-order_successor_pointer, ...]
+    if.true 
+      swap drop                   # Left child is new in-order successor   [Lchild_pointer, ...]
+      push.1                      # Continue loop                          [1, Lchild_pointer, ...]
+    else 
+      drop                        # Current in-order successor is final    [in-order_successor_pointer, ...]
+      push.0                      # Exit while loop                        [0, in-order_successor_pointer, ...]
+    end
+  end
+end
