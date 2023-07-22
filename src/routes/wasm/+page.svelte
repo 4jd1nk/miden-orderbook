@@ -28,7 +28,7 @@ import * as orderService from "../../services/orderService";
 				/>
 				<span class="">I understand that this is experimental</span>
 			</div>
-			<button disabled={!termAccepted} class="btn btn-primary mt-4 btn-md" on:click={clickFn}>Start</button>
+			<button disabled={termAccepted} class="btn btn-primary mt-4 btn-md" on:click={clickFn}>Start</button>
 		{/if}
 	</div>
 </article>
