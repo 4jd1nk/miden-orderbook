@@ -318,3 +318,147 @@ proc.HasChildren
     drop push.1
   end
 end
+
+proc.FindParent
+  # Inputs:  [new_order_word, ...]
+  # Outputs: [parent_node_pointer, new_order_wordA, ...]
+  #
+  push.1 exec.getNodePointer loc_store.3  # Initialize Temp Pointer To Tree Root   [new_order_word, ...]
+  push.1                                  # Enter while loop                       [1, new_order_word, ...]
+  while.true
+    ### COMPARE ###
+    dupw                      # Duplicate new order word                           [new_order_word, new_order_word, ...]
+    loc_load.3 exec.getOrder  # Load Temp Parent Order                             [temp_order_word, new_order_word, new_order_word, ...]
+    exec.CompareOrders        # Compare temp to new (returns 1 if parent>new)      [isTempOrderGreater_bool, new_order_word, ...]
+
+    ### LOAD TEMP's CHILDREN ###
+    loc_load.3 exec.getCoordinates       # Get coordinates of temp order           [temp_coordinate_word, isTempOrderGreater_bool, new_order_word, ...]
+    exec.getChildrenFromCoordinates      # Get temp order child pointers           [temp_Lchild_pointer, temp_Rchild_pointer, isTempOrderGreater_bool, new_order_word, ...]
+
+    movup.2                   # Get order compare back on top of stack             [isTempOrderGreater_bool, temp_Lchild_pointer, temp_Rchild_pointer, new_order_word, ...]
+    if.true
+      swap drop               # Isolate Left child pointer address                 [temp_Lchild_pointer, new_order_word, ...]
+    else
+      drop                   # Isolate Right child pointer address                 [temp_Rchild_pointer, new_order_word, ...]
+    end
+
+    dup push.0 neq            # Check if child is not NIL                          [isChildNotNIL_bool, temp_Xchild_pointer, new_order_word, ...]
+    if.true
+      loc_store.3             # Update temp parent pointer                         [new_order_word, ...]
+      push.1                  # Continue while loop                                [1, new_order_word, ...]
+    else
+      drop push.0             # Child slot is empty. Insert node here              [0, new_order_word, ...]
+    end
+  end
+  loc_load.3                  # Return proper parent in tree                       [temp_parent_pointer, new_order_word, ...]
+end
+
+proc.getParentPointer
+  # Inputs:  [node_pointer, ...]
+  # Outputs: [parent_pointer, ...]
+  #
+  # Comments: Gets parent pointer
+  # 
+  exec.getCoordinates          # Loads node coordinates       [___, parent_pointer, ___, ___, ...]
+  drop swap drop swap drop     # Isolates Parent pointer      [parent_pointer, ...]
+end
+
+proc.getUnclePointer
+  # Inputs:  [node_pointer, ...]
+  # Outputs: [uncle_pointer, ...]
+  #
+  # Comments: Gets uncle pointer
+  #
+  exec.getParentPointer dup         # Retrieves parent pointer and dups  [     parent_pointer, parent_pointer, ...]
+  exec.getParentPointer             # Retrieves pointer to grandparent   [grandparent_pointer, ...]
+  exec.getCoordinates               # Loads grandparent coordinates      [____, ____, relatedA_pointer, relatedB_pointer, parent_pointer, ...]
+  drop drop                         # Drop unnecessary fields            [relatedA_pointer, relatedB_pointer, parent_pointer, ...]
+  movup.2 dup.1 eq                  # Check if relatedA=parent           [isAparent_bool, relatedA_pointer, relatedB_pointer, ...] 
+  if.true
+    drop                            # RelatedB is uncle              
+  else
+    swap drop                       # RelatedA is uncle
+  end                               # [uncle_pointer,  ...]
+end
+
+proc.isNIL
+  # Inputs:  [node_pointer, ...]
+  # Outputs: [isNIL_bool, ...]
+  #
+  # Comments: Gets uncle pointer
+  #  
+  exec.getOrder                        # Load Order                       [order_quantity, order_price, order_time, order_index, ...] 
+  push.0 eq                            # Is quantity zero                 [isQuantityZero_bool, order_price, order_time, order_index, ...]
+  swap push.0 eq and                   # Are price&quantity zero          [isPriceQuantityZero_bool, order_time, order_index, ...]
+  swap push.0 eq and                   # Are price&quantity&time zero     [isTimePriceQuantityZero_bool, order_index, ...]
+  swap push.0 eq and                   # Are price&quantity&time&idx zero [isIdxTimePriceQuantityZero_bool, ...]
+end
+
+proc.getColor
+  # Inputs:  [node_pointer, ...]
+  # Outputs: [node_color, ...]
+  #
+  # Comments: Returns color of node at node_pointer
+  #
+  exec.getCoordinates exec.getColorFromCoordinates
+end
+
+proc.setColor
+  # Inputs: [node_pointer, color_bool, ...]
+  # Output: [...]
+  #
+  # Comments: Sets color of node addressed by node_pointer
+  #           to the color specified by color_bool
+  #
+  dup exec.SaveChangeFlag    # Save change flag
+  dup exec.getCoordinates    # Load node_pointer coordinates                   [  node_color,        ___, ___, ___, node_pointer, color_bool, ...]
+  movup.5                    # Move color_bool to top of stack                 [color_bool, node_color, ___, ___, ___, node_pointer, ...]
+  swap drop movup.4          # Swap colors and move node_pointer top of stack  [node_pointer, color_bool, ___, ___, ___, ...]
+  exec.SaveCoordinate
+end
+
+proc.isRoot
+  # Inputs:  [node_pointer, ...]
+  # Outputs: [isRoot_bool, ...]
+  #
+  # Comments: Checks if node is root of the tree
+  #
+  exec.getParentPointer exec.getColor    # Get parent color      [parent_color, ...]
+  push.2 eq                              # Is Color Init value 2 [isColorInit_bool,...]
+end
+
+proc.getRootPointer 
+  push.0 exec.getNodePointer exec.getCoordinates exec.getChildrenFromCoordinates
+  dup push.0 eq 
+  if.true 
+    drop 
+  else 
+    swap drop
+  end
+end
+
+proc.isUncleNIL
+  # Inputs:  [node_pointer, ...]
+  # Outputs: [isUncleNIL_bool, ...]
+  #
+  # Comments: Checks if Uncle of node is NIL
+  #
+  exec.getUnclePointer exec.isNIL
+end
+
+proc.isLeftChild
+  # Inputs:  [node_pointer, ...]
+  # Outputs: [isLeftChild_bool]
+  #
+  # Comments: Checks if node is a Left child of its parent
+  #
+  dup exec.isRoot not            # Confirm node isn't root   [isRoot_bool, node_pointer, ...]
+  if.true
+    dup exec.getParentPointer    # Loads pointer to parent   [parent_pointer, node_pointer, ...]
+    exec.getCoordinates          # Loads parent coordiantes  [___, ___, parent_Lchild_pointer, parent_Rchild_pointer, node_pointer, ...]
+    drop drop swap drop          # Drop unnecessary fields   [parent_Lchild_pointer, node_pointer, ...]
+    eq                           # Check if node is Lchild   [isLeftChild_bool]
+  else
+    drop push.0  
+  end            
+end
