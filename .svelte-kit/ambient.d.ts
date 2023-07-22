@@ -26,6 +26,7 @@
  * ```
  */
 declare module '$env/static/private' {
+	export const NVM_INC: string;
 	export const NVM_RC_VERSION: string;
 	export const MANPATH: string;
 	export const TERM_PROGRAM: string;
@@ -35,8 +36,8 @@ declare module '$env/static/private' {
 	export const TERM: string;
 	export const SHELL: string;
 	export const npm_config_metrics_registry: string;
-	export const HOMEBREW_REPOSITORY: string;
 	export const TMPDIR: string;
+	export const HOMEBREW_REPOSITORY: string;
 	export const npm_config_global_prefix: string;
 	export const TERM_PROGRAM_VERSION: string;
 	export const ZDOTDIR: string;
@@ -79,6 +80,7 @@ declare module '$env/static/private' {
 	export const LOGNAME: string;
 	export const npm_lifecycle_script: string;
 	export const VSCODE_GIT_IPC_HANDLE: string;
+	export const NVM_BIN: string;
 	export const npm_config_user_agent: string;
 	export const VSCODE_GIT_ASKPASS_NODE: string;
 	export const GIT_ASKPASS: string;
@@ -117,6 +119,7 @@ declare module '$env/static/public' {
  */
 declare module '$env/dynamic/private' {
 	export const env: {
+		NVM_INC: string;
 		NVM_RC_VERSION: string;
 		MANPATH: string;
 		TERM_PROGRAM: string;
@@ -126,8 +129,8 @@ declare module '$env/dynamic/private' {
 		TERM: string;
 		SHELL: string;
 		npm_config_metrics_registry: string;
-		HOMEBREW_REPOSITORY: string;
 		TMPDIR: string;
+		HOMEBREW_REPOSITORY: string;
 		npm_config_global_prefix: string;
 		TERM_PROGRAM_VERSION: string;
 		ZDOTDIR: string;
@@ -170,6 +173,7 @@ declare module '$env/dynamic/private' {
 		LOGNAME: string;
 		npm_lifecycle_script: string;
 		VSCODE_GIT_IPC_HANDLE: string;
+		NVM_BIN: string;
 		npm_config_user_agent: string;
 		VSCODE_GIT_ASKPASS_NODE: string;
 		GIT_ASKPASS: string;
