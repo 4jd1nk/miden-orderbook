@@ -1,4 +1,4 @@
-import init, {Outputs, prove_program} from "miden-vm";
+import init, {Outputs, prove_program, verify_program} from "miden-vm";
 import initData from "./data.json";
 import RbTree from "red-black-tree-js";
 
@@ -191,7 +191,7 @@ export async function createOrder(quantity: number, price: number | null, side :
     inputData.operand_stack[4] = "9999999"; //TBI
 
     const { stack_output, trace_len, overflow_addrs, proof }: Outputs =
-        prove_program_mock(JSON.stringify(inputData));
+        prove_program(JSON.stringify(inputData));
 
     const sProof = Array.from(proof!)
         .map((b) => b.toString(16).padStart(2, "0"))
@@ -268,6 +268,20 @@ export async function createOrder(quantity: number, price: number | null, side :
     console.log(uiTree);
     console.log(inputData);
     console.log(sProof);
+    
+    const inputOperandStack = JSON.stringify({
+        "operand_stack" : inputData.operand_stack
+    });
 
-    return sProof;
+    return {sProof, inputOperandStack, stack_output, overflow_addrs, proof};
+}
+
+export function verifyProof(input : string, output : BigUint64Array, overflowAddress : BigUint64Array, proof : Uint8Array) {
+    try {
+        verify_program(input, proof, output, overflowAddress);
+        return true;
+    }
+    catch (error) {
+        return false;
+    }
 }
