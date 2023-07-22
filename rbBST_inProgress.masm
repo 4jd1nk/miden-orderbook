@@ -183,3 +183,138 @@ proc.PrintAllNodes
   end
   drop
 end
+
+proc.PrintChangeLog
+  # Inputs: [...]
+  # Output: [N, coordinate_word_N, order_word_N, ..., 2, coordinate_word_2, order_word_2, 1, coordinate_word_3, order_word_3, ... ]
+  #
+  # Comments: Prints all node data only for orders whose change flag has changed
+  #
+  push.0 dup                           # [0,0,....]
+  mem_load.0 lt                       # [isLessThanCreationNumber_bool, 0, ...]
+  while.true
+    push.1 add dup                     # [j++, j++, ...]
+    exec.getNodePointer                # [node_pointer, j++, ...] 
+    dup exec.getChangeFlag             # [node_change_flag, node_pointer, j++, ...]
+    if.true 
+      exec.LoadNode drop               # [node_coordinate_word, node_order_word, j++, ...]
+      movup.8 dup                      # [j++, j++, node_coordinate_word, node_order_word, ...]
+      exec.getNodePointer swap         # [j++, node_pointer, node_coordinate_word, node_order_word, ...]
+    else 
+      drop
+    end                
+    dup mem_load.0 lt                  # [moreNodes_bool, j++, node_pointer, node_coordinate_word, node_order_word, ...]
+  end
+  drop
+end
+
+proc.CompareOrders
+  # Input:   [Order_word_A, Order_Word_B, ...]
+  # Outputs: [compare_bool, ...]
+  #
+  # Comment: compare_bool = 0 (1) if Order_A < Order B (Order_A > Order B)
+  #
+  # Order_A > Order_B if ( (price_A > price_B) or ((price_A==price_B) and (time_A > time_B)) )
+  #
+  ### COMPARE PRICES ###
+  dup.5                      # Duplicate Price_B  
+  dup.2                      # Duplicate Price_A
+  lt                         # Check Price_B < Price_A ?
+  if.true                    # Price_B < Price_A
+    dropw dropw push.1       # Push 1 to signal result Order_A > Order_B
+  else
+    dup.5 dup.2 neq          # Duplicate Price_B, Price_A, and check for equality
+    if.true                  # Price_A < Price_B 
+      dropw dropw push.0     # Push 0 to signal result Order_B > Order_A
+    else                     # Price_A = Price_B
+      dup.6 dup.3            # Duplicate Time_B and Time_A 
+      lt                     # Check Time_B < Time_A ?
+      if.true                # Time_B < Time_A
+        dropw dropw push.1   # Push 1 to signal result Order_A > Order_B
+      else                   # Time_B > Time_A
+        dropw dropw push.0   # Push 0 to signal result Order_A < Order_B
+      end 
+    end 
+  end 
+end
+
+proc.setLeftChildToParent
+  # Inputs:  [Parent_pointer, New_Child_pointer, ...]
+  # Outputs: [...]
+  #
+  # Comments: Whithin P_coordinates: L_child_pointer -> New_Child_pointer
+  #
+  dup exec.getCoordinates    # Duplicate P_pointer and load coordinates     [___, ___, Lchild_pointer, ___, parent_pointer, new_Lchild_pointer, ...]
+  movup.5                    # Move new Lchild to the top of the stack      [new_Lchild_pointer, ___, ___, Lchild_pointer, ___, parent_pointer, ...]
+  swap.3 drop                # Swap with old L_child pointer                [ ___, ___, new_Lchild_pointer, ___, parent_pointer, ...]       
+  movup.4                    # Move P_pointer to the top of the stack       [parent_pointer,  ___, ___, new_Lchild_pointer, ___, ...]
+  dup exec.SaveChangeFlag    # Save change flag                             [parent_pointer,  ___, ___, new_Lchild_pointer, ___, ...]
+  exec.SaveCoordinate        # Save updated Parent coordinates              [...]
+end
+
+proc.setRightChildToParent
+  # Inputs:  [Parent_pointer, New_Child_pointer, ...]
+  # Outputs: [...]
+  #
+  # Comments: Whithin P_coordinates: L_child_pointer -> New_Child_pointer
+  #
+  dup exec.getCoordinates    # Duplicate P_pointer and load coordinates     [___, ___, ___, Rchild_pointer, parent_pointer, new_Lchild_pointer, ...]
+  movup.5                    # Move new Rchild to the top of the stack      [new_child_pointer, ___, ___, ___, Rchild_pointer, parent_pointer, ...]
+  swap.4 drop                # Swap with old Rchild pointer                 [___, ___, ___, new_child_pointer, parent_pointer, ...]       
+  movup.4                    # Move P_pointer to the top of the stack       [parent_pointer,  ___, ___, ___, new_child_pointer, ...]
+  dup exec.SaveChangeFlag    # Save change flag                             [parent_pointer,  ___, ___, ___, new_child_pointer, ...]
+  exec.SaveCoordinate        # Save updated Parent coordinates              [...]
+end
+
+proc.UpdateChildInParent
+  # Inputs: [Parent_pointer, Child_Pointer, ...]
+  # Output: [...]
+  #
+  # Comments: Checks if child is L or R and updates the corresponding pointer
+  #
+  dup exec.SaveChangeFlag              # Save change flag              [Parent_pointer, Child_Pointer, ...]
+  dup.1 exec.getOrder                  # Load child order              [child_order_word, Parent_pointer, Child_Pointer, ...]
+  dup.4 exec.getOrder                  # Load parent order             [parent_order_word, child_order_word, Parent_pointer, Child_Pointer, ...]
+  exec.CompareOrders                   # Compare Parent and Child      [isParentGreaterThanChild_bool, Parent_pointer, Child_Pointer, ...]
+  if.true                              
+    exec.setLeftChildToParent 
+  else
+    exec.setRightChildToParent
+  end
+end
+
+proc.UpdateParentInChild
+  # Inputs: [Parent_pointer, Child_Pointer, ...]
+  # Output: [ ...]
+  #
+  # Comments:  Sets Parent_pointer as the new parent of Child 
+  #
+  dup.1 exec.SaveChangeFlag # Save change flag
+  dup.1 exec.getCoordinates # Load Child coordinates                   [           ____, OLD_parent_pointer,               ____, ____, Parent_pointer, Child_Pointer, ...]
+  movup.4                   # Move Parent_pointer to top of the stack  [ Parent_pointer,               ____, OLD_parent_pointer, ____,           ____, Child_Pointer, ...]
+  swap.2 drop               # Update parent pointer                    [           ____,     Parent_pointer,               ____, ____,  Child_Pointer, ...]
+  movup.4                   # Move Child_pointer to top of the stack   [  Child_Pointer,               ____,     Parent_pointer, ____,           ____, ...]
+  exec.SaveCoordinate       # Save updated coordinates                 [ ...]  
+end
+
+proc.HasChildren
+  # Inputs:  [ node_pointer, ...]
+  # Outputs: [hasChildren_bool, ...]
+  #
+  # Comments: Returns terminal_bool=1 if node has children.
+  # terminal_bool=0 otherwise
+  #
+  exec.getCoordinates
+  exec.getChildrenFromCoordinates
+  push.0 eq 
+  if.true
+    push.0 eq 
+    if.true
+      push.0
+    else
+      push.1
+    end 
+  else
+    drop push.1
+  end
+end
