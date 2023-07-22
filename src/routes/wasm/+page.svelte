@@ -1,6 +1,13 @@
 <script>
+
+import * as orderService from "../../services/orderService";
+
 	export let termAccepted = false;
 	export let started = false;
+
+	export async function clickFn() {
+		await orderService.createOrder(3, 5, 0);
+	}
 </script>
 
 <article class="container py-16 prose prose-lg prose-stone">
@@ -21,7 +28,7 @@
 				/>
 				<span class="">I understand that this is experimental</span>
 			</div>
-			<button disabled={!termAccepted} class="btn btn-primary mt-4 btn-md" on:click={() => (started = true)}>Start</button>
+			<button disabled={!termAccepted} class="btn btn-primary mt-4 btn-md" on:click={await clickFn}>Start</button>
 		{/if}
 	</div>
 </article>
