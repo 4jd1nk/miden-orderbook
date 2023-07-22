@@ -1,7 +1,7 @@
-mod utils_masm_code;
 mod utils_input;
+mod utils_masm_code;
 mod utils_program;
-use miden_vm::ProvingOptions;
+use miden_vm::{ProgramInfo, ProvingOptions, StackOutputs};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
@@ -12,15 +12,17 @@ pub struct Outputs {
     pub trace_len: Option<usize>,
     pub overflow_addrs: Option<Vec<u64>>,
     pub proof: Option<Vec<u8>>,
+    pub program_hash: Option<Vec<u8>>,
 }
 
 /// Proves the program with the given inputs
 #[wasm_bindgen]
 pub fn prove_program(inputs_frontend: &str) -> Result<Outputs, JsValue> {
-    let mut program = utils_program::MidenProgram::new(&utils_masm_code::get_masm_code().to_string(), utils_program::DEBUG_OFF);
-    program
-        .compile_program()
-        .map_err(|err| format!("Failed to compile program - {:?}", err))?;
+    let mut program = utils_program::MidenProgram::new(
+        &utils_masm_code::get_masm_code().to_string(),
+        utils_program::DEBUG_OFF,
+    );
+    program.compile_program().map_err(|err| format!("Failed to compile program - {:?}", err))?;
 
     let mut inputs = utils_input::Inputs::new();
     inputs
@@ -44,17 +46,50 @@ pub fn prove_program(inputs_frontend: &str) -> Result<Outputs, JsValue> {
         trace_len: Some(proof.stark_proof().trace_length()),
         overflow_addrs: Some(output.overflow_addrs().to_vec()),
         proof: Some(proof.to_bytes()),
+        // program hash hex string
+        program_hash: Some(
+            program.program_info.clone().unwrap().program_hash().as_bytes().to_vec(),
+        ),
     };
+
+    miden_vm::verify(program.program_info.unwrap(), inputs.stack_inputs, output, proof)
+        .map_err(|err| format!("Failed to verify proof - {:?}", err))?;
+
+    Ok(result)
+}
+
+#[wasm_bindgen]
+pub fn verify_program(
+    inputs_frontend: &str,
+    proof: &[u8],
+    output: &[u64],
+    overflow_addrs: &[u64],
+) -> Result<(), JsValue> {
+    let mut program = utils_program::MidenProgram::new(
+        &utils_masm_code::get_masm_code().to_string(),
+        utils_program::DEBUG_OFF,
+    );
+    program.compile_program().map_err(|err| format!("Failed to compile program - {:?}", err))?;
+
+    let mut inputs = utils_input::Inputs::new();
+    inputs
+        .deserialize_inputs(inputs_frontend)
+        .map_err(|err| format!("Failed to deserialize inputs - {:?}", err))?;
+
+    let execution_proof = miden_vm::ExecutionProof::from_bytes(proof)
+        .map_err(|err| format!("Failed to deserialize proof - {:?}", err))?;
+
+    let stack_output = StackOutputs::new(output.to_vec(), overflow_addrs.to_vec());
 
     miden_vm::verify(
         program.program_info.unwrap(),
         inputs.stack_inputs,
-        output,
-        proof,
+        stack_output.unwrap(),
+        execution_proof,
     )
     .map_err(|err| format!("Failed to verify proof - {:?}", err))?;
 
-    Ok(result)
+    Ok(())
 }
 
 #[test]
