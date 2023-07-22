@@ -1,0 +1,185 @@
+#
+# Library for Red-Black Binary Search Tree implementation of orderbook management
+#
+# Reference: https://en.wikipedia.org/wiki/Red%E2%80%93black_tree
+#
+
+proc.getNodePointer
+  # Inputs:  [creation_counter, ...]
+  # Outputs: [node_pointer, ...]
+  # node_pointer = creation_counter * 3 + 1
+  #
+  # Comments: node_pointer >= 1.  Three items in memory: coordinate_word, order_word, and change flag
+  #
+  push.3 mul push.1 add  # Generate node_pointer
+end
+
+proc.getTotalNodes
+  mem_load.0 push.2 sub 
+end
+
+proc.SaveCoordinate
+  # Inputs: [node_pointer, coordinate_word, ...]
+  # Output: [...]
+  #
+  # Comments: saves coordinate word to address node_pointer, 
+  #
+  mem_storew dropw # Save in RAM          [...]
+end
+
+proc.SaveOrder
+  # Inputs: [node_pointer, order_word, ...]
+  # Output: [...]
+  #
+  # Comments: saves order word to address node_pointer+1, 
+  #
+  push.1 add       # Set memory address   [node_pointer+1, order_word, ...]
+  mem_storew dropw # Save in RAM          [...]
+end
+
+proc.SaveChangeFlag
+  # Inputs: [node_pointer, ...]
+  # Output: [...]
+  #
+  # Comments: saves order word to address node_pointer+1, 
+  #
+  push.1 swap      # Set change flag      [node_pointer, 1, ...]
+  push.2 add       # Set memory address   [node_pointer+2, 1, ...]
+  mem_store        # Save in RAM          [...]
+end
+
+proc.UpdateCoordinate
+  # Inputs: [node_pointer, coordinate_word, ...]
+  # Output: [...]
+  #
+  # Comments: saves coordinate word to address node_pointer, 
+  #            Change flag is updated
+  #
+  dup exec.SaveChangeFlag
+  exec.SaveCoordinate
+end
+
+proc.UpdateOrder
+  # Inputs: [node_pointer, order_word, ...]
+  # Output: [...]
+  #
+  # Comments: saves order word to address node_pointer+1. 
+  #            Change flag is updated
+  #
+  dup exec.SaveChangeFlag
+  exec.SaveOrder
+end
+
+proc.SaveNode
+  # Inputs: [node_pointer, coordinate_word, order_word]
+  # Output: saves coordinate word to address node_pointer, 
+  # and order_word to address node_pointer+1
+  #
+  dup movdn.5 
+  exec.SaveCoordinate
+  exec.SaveOrder
+end
+
+proc.UpdateNode
+  # Inputs: [node_pointer, coordinate_word, order_word]
+  # Output: saves coordinate word to address node_pointer, 
+  # and order_word to address node_pointer+1
+  #
+  dup movdn.5 
+  exec.UpdateCoordinate
+  exec.UpdateOrder
+end
+
+proc.InitTree
+  # Inputs:  [...]
+  # Outputs: [...]
+  #
+  # Comments: Initialized rbBST tree by creating a special first node
+  # With color and parent pointer set to special value of 2
+  # 
+  push.0.0.0.0.0.0.0.2                         # [2,0,0,0,0,0,0,0, ...]
+  push.0 exec.getNodePointer exec.SaveNode     
+end
+
+proc.getCoordinates
+  # Inputs:  [node_pointer, ...]
+  # Outputs: [color, Parent_pointer, L_child_pointer, R_child_pointer, ...]
+  # 
+  push.0.0.0.0 
+  movup.4 mem_loadw             # Load node Coordinates from memory
+end
+
+proc.getColorFromCoordinates
+  # Inputs:  [color, Parent_pointer, L_child_pointer, R_child_pointer, ...]
+  # Outputs: [color, ...]
+  # 
+  movdn.3         # Move color to bottom of current word
+  drop drop drop  # Drop unnecessary pointer data
+end
+
+proc.getChildrenFromCoordinates
+  # Inputs:  [color, Parent_pointer, L_child_pointer, R_child_pointer, ...]
+  # Outputs: [L_child_pointer, R_child_pointer, ...]
+  # 
+  drop drop
+end
+
+proc.getOrder
+  # Inputs:  [node_pointer, ...]
+  # Outputs: [quantity, price, time, orderID, ...]
+  # 
+  push.0.0.0.0 movup.4 push.1 add mem_loadw  # Load node Order from memory
+end
+
+proc.getChangeFlag
+  # Inputs:  [node_pointer, ...]
+  # Outputs: [change_flag, ...]
+  #
+  push.2 add mem_load
+end
+
+proc.LoadNode
+  # Inputs: [node_pointer, ...]
+  # Output: [coordinate_word, order_word]
+  #
+  dup exec.getOrder
+  movup.4
+  dup exec.getCoordinates
+  movup.4 
+  exec.getChangeFlag
+end
+
+proc.PrintAllNodesEssential
+  # Inputs: [...]
+  # Output: [N, coordinate_word_N, price_N, ..., 2, coordinate_word_2, price_2, 1, coordinate_word_3, price_3, ... ]
+  #
+  push.0 dup                            # [0,0,....]
+  mem_load.0 lt                         # [isLessThanCreationNumber_bool, 0, ...]
+  while.true
+     push.1 add dup                     # [j++, j++, ...]
+     exec.getNodePointer                # [node_pointer, j++, ...]
+     dup exec.getOrder                  # [order_word, node_pointer, j++, ...]
+     drop swap drop swap drop           # [order_price, node_pointer, j++, ...]
+     swap exec.getCoordinates           # [coordinate_word, order_price, j++, ...]
+     movup.5 dup                        # [j++, j++, coordinate_word, order_price, j++, ...]
+     exec.getNodePointer swap           # [j++, node_pointer, coordinate_word, order_price, j++, ...]
+     dup mem_load.0 lt                  # [moreNodes_bool, j++, node_pointer, coordinate_word, order_price, j++, ...]
+  end
+  drop
+end
+
+proc.PrintAllNodes
+  # Inputs: [...]
+  # Output: [N, coordinate_word_N, order_word_N, ..., 2, coordinate_word_2, order_word_2, 1, coordinate_word_3, order_word_3, ... ]
+  #
+  push.0 dup                            # [0,0,....]
+  mem_load.0 lt                         # [isLessThanCreationNumber_bool, 0, ...]
+  while.true
+     push.1 add dup                     # [j++, j++, ...]
+     exec.getNodePointer exec.LoadNode  # [node_change_flag, node_coordinate_word, node_order_word, j++, ...]
+     drop movup.8 dup                   # [j++, j++, node_coordinate_word, node_order_word, ...]
+     exec.getNodePointer swap           # [j++, node_pointer, node_coordinate_word, node_order_word, ...]
+     dup mem_load.0 lt                  # [moreNodes_bool, j++, node_pointer, node_coordinate_word, node_order_word, ...]
+  end
+  drop
+end
