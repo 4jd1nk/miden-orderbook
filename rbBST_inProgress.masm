@@ -706,3 +706,117 @@ proc.getRightMinimumSubtreeElement
     end
   end
 end
+
+proc.LeftRotate
+  # Inputs: [pivot_node_pointer,....]
+  # Ouputs: [...]
+  #
+  # For spec readability, recall that the structure of each node's coordinates is:
+  #
+  # {color, parent_pointer, Left_child_pointer, Left_child_pointer}
+  #
+  # In what follows, coordinate values which remain unchanged are shown as an underscore (____)
+  # 
+  # <Coordinates Before>
+  # Node's Parent (NP):                      {____,         ____,     N_pointer,        ____ } or {____, ____, ____ ,  N_pointer}
+  # Node coordinates (N):                    {____,   NP_pointer,          ____, NRC_pointer }
+  # Node's Right Child (NRC):                {____,    N_pointer, NRCLC_pointer,        ____ }
+  # Node's Right Child's Left Child (NRCLC): {____,  NRC_pointer,          ____,        ____ }
+  #
+  # <Coordinates After>
+  # Node's Parent (NP):                      {____,         ____,   NRC_pointer,          ____ }  or {____, ____, ____ ,  NRC_pointer}
+  # Node coordinates (N):                    {____,  NRC_pointer,          ____, NRCLC_pointer }
+  # Node's Right Child (NRC):                {____,   NP_pointer,     N_pointer,          ____ }
+  # Node's Right Child's Left Child (NRCLC): {____,    N_pointer,          ____,          ____ }
+  #
+  # Visual for reference see here:
+  # https://en.wikipedia.org/wiki/Red%E2%80%93black_tree#/media/File:Binary_Tree_Rotation_(animated).gif
+  #
+
+  #### UPDATE Node Parent (RP) ####
+  dup exec.getCoordinates                # Load N's coordinates                   [____, NP_pointer,  ____, NRC_pointer, N_pointer, ...]
+  drop swap drop                         # Isolate NP_pointer and NRC_pointer     [NP_pointer, NRC_pointer,   N_pointer, ...]
+  dup.2 exec.isLeftChild                 # Is node left child?                    [isLeftChild_bool, NP_pointer, NRC_pointer,   N_pointer, ...]
+  if.true 
+    dup.1 dup.1 exec.setLeftChildToParent  # Update NRC as NP's new left child    [NP_pointer, NRC_pointer,   N_pointer, ...]
+  else 
+    dup.1 dup.1 exec.setRightChildToParent  # Update NRC as NP's new left child   [NP_pointer, NRC_pointer,   N_pointer, ...]
+  end
+
+  #### UPDATE Node's Right Child's Left Child (NRCLC) ####
+  dup.1 exec.getCoordinates                    # Load NRC coordinates             [         ____,     N_pointer, NRCLC_pointer,       ____,    NP_pointer, NRC_pointer,   N_pointer, ...]
+  exec.getChildrenFromCoordinates swap drop    # Isolate pointer to NRCLC         [NRCLC_pointer,    NP_pointer,   NRC_pointer,  N_pointer, ...]
+  dup dup.4                                    # N and NRCLC on top of stack      [    N_pointer, NRCLC_pointer, NRCLC_pointer, NP_pointer, NRC_pointer, N_pointer, ...]
+  exec.UpdateParentInChild                     # Set N as new parent of NRCLC     [NRCLC_pointer, NP_pointer, NRC_pointer, N_pointer, ...]
+
+  #### UPDATE Node (N) ####
+  dup.3 exec.getCoordinates              # Load N coordinates                     [         ____,  NP_pointer,        ____,   NRC_pointer, NRCLC_pointer,  NP_pointer, NRC_pointer, N_pointer, ...]
+  movup.4                                # Move NRCLC_pointer top of stack        [NRCLC_pointer,        ____,  NP_pointer,          ____,   NRC_pointer,  NP_pointer, NRC_pointer, N_pointer, ...]
+  swap.4 drop                            # Set NRCLC as right child of N          [         ____,  NP_pointer,        ____, NRCLC_pointer,    NP_pointer, NRC_pointer, N_pointer, ...]
+  dup.5                                  # Duplicate NRC_pointer                  [  NRC_pointer,        ____,  NP_pointer,          ____, NRCLC_pointer,  NP_pointer, NRC_pointer, N_pointer, ...] 
+  swap.2 drop                            # Set NRC as parent of N                 [         ____, NRC_pointer,        ____, NRCLC_pointer,    NP_pointer, NRC_pointer, N_pointer, ...]
+  dup.6 exec.UpdateCoordinate            # Save new coordinates of N              [   NP_pointer, NRC_pointer,   N_pointer, ...]   
+
+  #### UPDATE Node's Right Child (NRC) ####
+  dup.1 exec.getCoordinates              # Load NRC coordinates                   [       ____,  N_pointer, NRCLC_pointer,      ____,  NP_pointer, NRC_pointer, N_pointer, ...]
+  movup.4 swap.2 drop                    # Set NP as new parent of NRC            [       ____, NP_pointer, NRCLC_pointer,      ____, NRC_pointer,   N_pointer, ...]
+  movup.5 swap.3 drop                    # Set N as new left child of NRC         [       ____, NP_pointer,     N_pointer,      ____, NRC_pointer, ...]
+  movup.4 exec.UpdateCoordinate          # Save new coordinates of NRC            [ ...]
+end
+
+proc.RightRotate
+  # Inputs: [pivot_node_pointer,....]
+  # Ouputs: [...]
+  #
+  # For spec readability, recall that the structure of each node's coordinates is:
+  #
+  # {color, parent_pointer, Left_child_pointer, Left_child_pointer}
+  #
+  # In what follows, coordinate values which remain unchanged are shown as an underscore (____)
+  # 
+  # <Coordinates Before>
+  # Root's Parent (NP):                      {____,         ____,     N_pointer,         ____ }  or {____, ____, ____ ,  N_pointer}
+  # Root coordinates (N):                    {____,   NP_pointer,   NLC_pointer,         ____ }
+  # Root's Left Child (NLC):                 {____,    N_pointer,          ____, NLCRC_pointer}
+  # Root's Left Child's Right Child (NLCRC): {____,  NLC_pointer,          ____,         ____ }
+  #
+  # <Coordinates After>
+  # Root's Parent (NP):                      {____,         ____,   NLC_pointer,         ____ }  or {____, ____, ____ ,  NLC_pointer}
+  # Root coordinates (N):                    {____,  NLC_pointer, NLCRC_pointer,         ____ }
+  # Root's Left Child (NLC):                 {____,   NP_pointer,          ____,     N_pointer}
+  # Root's Left Child's Right Child (NLCRC): {____,    N_pointer,          ____,         ____ }
+  #
+  # Visual for reference see here:
+  # https://en.wikipedia.org/wiki/Red%E2%80%93black_tree#/media/File:Binary_Tree_Rotation_(animated).gif
+  #
+
+  #### UPDATE Root Parent (NP) ####
+  dup exec.getCoordinates                # Load N's coordinates                   [____,   NP_pointer,   NLC_pointer,  ____, N_pointer, ...]
+  drop movup.2 drop                      # Isolate NP_pointer and NLC_pointer     [NP_pointer,   NLC_pointer,   N_pointer, ...]
+  dup.2 exec.isLeftChild                 # Is node left child?                    [isLeftChild_bool, NP_pointer, NLC_pointer,   N_pointer, ...]
+  if.true 
+    dup.1 dup.1 exec.setLeftChildToParent  # Update NRC as NP's new left child    [NP_pointer, NLC_pointer,   N_pointer, ...]
+  else 
+    dup.1 dup.1 exec.setRightChildToParent  # Update NRC as NP's new left child   [NP_pointer, NLC_pointer,   N_pointer, ...]
+  end
+
+  #### UPDATE Root's Left Child's Right Child (NLCRC) ####
+  dup.1 exec.getCoordinates              # Load NLC coordinates                   [         ____,     N_pointer,          ____, NLCRC_pointer,  NP_pointer, NRC_pointer,   N_pointer, ...]
+  exec.getChildrenFromCoordinates drop   # Isolate pointer to NLCRC               [NLCRC_pointer,    NP_pointer,   NLC_pointer,     N_pointer, ...]
+  dup dup.4                              # N and NLCRC pointer on stack           [    N_pointer, NLCRC_pointer, NLCRC_pointer,    NP_pointer, NLC_pointer,   N_pointer, ...]
+  exec.UpdateParentInChild               # Set N as new parent of NLCRC           [NLCRC_pointer,    NP_pointer,   NLC_pointer,     N_pointer, ...]
+
+  #### UPDATE Root (N) ####
+  dup.3 exec.getCoordinates              # Load N coordinates                     [         ____,  NP_pointer,   NLC_pointer,          ____, NLCRC_pointer,  NP_pointer, NLC_pointer, N_pointer, ...]
+  movup.4                                # Move NLCRC_pointer top of stack        [NLCRC_pointer,        ____,    NP_pointer,   NLC_pointer,          ____,  NP_pointer, NLC_pointer, N_pointer, ...]
+  swap.3 drop                            # Set NLCRC as left child of N           [         ____,  NP_pointer, NLCRC_pointer,          ____,    NP_pointer, NLC_pointer,   N_pointer, ...]
+  dup.5                                  # Duplicate NLC_pointer                  [  NLC_pointer,        ____,    NP_pointer, NLCRC_pointer,          ____,  NP_pointer, NLC_pointer, N_pointer, ...] 
+  swap.2 drop                            # Set NLC as parent of N                 [         ____, NLC_pointer, NLCRC_pointer,          ____,    NP_pointer, NLC_pointer,   N_pointer, ...]
+  dup.6 exec.UpdateCoordinate            # Save new coordinates of N              [NP_pointer, NLC_pointer, N_pointer, ...]   
+
+  # #### UPDATE Root's Left Child (NLC) ####
+  dup.1 exec.getCoordinates              # Load NLC coordinates                   [       ____,  N_pointer,       ____, NLCRC_pointer, NP_pointer, NLC_pointer, N_pointer, ...]
+  movup.4 swap.2 drop                    # Set NP as new parent of NLC            [       ____, NP_pointer,       ____, NLCRC_pointer, NLC_pointer,   N_pointer, ...]
+  movup.5 swap.4 drop                    # Set N as new right child of NLC        [       ____, NP_pointer,       ____,     N_pointer, NLC_pointer, ...]
+  movup.4 exec.UpdateCoordinate          # Save new coordinates of NRC            [ ...]
+end
