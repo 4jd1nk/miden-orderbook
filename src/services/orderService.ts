@@ -38,6 +38,7 @@ interface UiNode {
     id :number,
     price:number,
     children: number[],
+    parent: number,
     quantity: number,
     color: string
 }
@@ -82,6 +83,7 @@ function initializeTrees() {
             id: node.memory.memoryLocation,
             price: node.order.price,
             children: [node.coordinate.leftChildId, node.coordinate.rightChildId],
+            parent: node.coordinate.parentId,
             quantity: node.order.quantity,
             color: node.coordinate.color ? "red" : "black"
         });
@@ -255,6 +257,7 @@ export async function createOrder(quantity: number, price: number | null, side :
             id: element.memory.memoryLocation,
             price: element.order.price,
             children: [element.coordinate.leftChildId, element.coordinate.rightChildId],
+            parent: element.coordinate.parentId,
             quantity: element.order.quantity,
             color: element.coordinate.color ? "red" : "black"
         });
@@ -268,7 +271,7 @@ export async function createOrder(quantity: number, price: number | null, side :
     console.log(uiTree);
     console.log(inputData);
     console.log(sProof);
-    
+
     const inputOperandStack = JSON.stringify({
         "operand_stack" : inputData.operand_stack
     });
