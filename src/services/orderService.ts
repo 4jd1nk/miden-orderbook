@@ -44,8 +44,8 @@ interface UiNode {
 }
 
 export enum Side {
-    Buy,
-    Sell
+    Sell,
+    Buy
 }
 
 function BNtoNumber(n: bigint) {
@@ -174,8 +174,8 @@ export async function createOrder(quantity: number, price: number | null, side :
     await init();
  
     //construct the operand stack as a new order
-    inputData.operand_stack[0] = side.toString();
-    inputData.operand_stack[1] = quantity.toString();
+    inputData.operand_stack[4] = side.toString();
+    inputData.operand_stack[3] = quantity.toString();
     let sPrice : string;
     if (price === null) {
         if (side == Side.Sell) {
@@ -189,12 +189,13 @@ export async function createOrder(quantity: number, price: number | null, side :
         sPrice = price.toString();
     }
     inputData.operand_stack[2] = sPrice;
-    inputData.operand_stack[3] = Math.floor((new Date().getTime()) /1000).toString();
-    inputData.operand_stack[4] = "9999999"; //TBI
+    inputData.operand_stack[1] = Math.floor((new Date().getTime()) /1000).toString();
+    inputData.operand_stack[0] = "9999999"; //TBI
 
+    console.log(JSON.stringify(inputData));
     const { stack_output, trace_len, overflow_addrs, proof }: Outputs =
         prove_program(JSON.stringify(inputData));
-
+    console.log("hello");
     const sProof = Array.from(proof!)
         .map((b) => b.toString(16).padStart(2, "0"))
         .join("");
